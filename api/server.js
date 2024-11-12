@@ -1,7 +1,7 @@
 // Import Routes
 const User = require('../routes/UserRoutes');
 const Job = require('../routes/JobRoutes');
-const Application = require('./routes/ApplicationRoutes');
+const Application = require('../routes/ApplicationRoutes');
 const Admin = require('../routes/AdminRoutes');
 const dotenv = require('dotenv');
 const cloudinary = require('cloudinary').v2;
