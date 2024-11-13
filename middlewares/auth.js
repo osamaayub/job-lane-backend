@@ -29,7 +29,7 @@ exports.isAuthenticated = async (req, res, next) => {
         }
         jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
             if (err) {
-                return res.status(400).json({
+                return res.status(401.json({
                     success: false,
                     isLogin: false,
                     message: err.message
