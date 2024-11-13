@@ -32,7 +32,7 @@ HubHive enables job seekers to manage applications, employers to post job listin
 
 ## Live Demo
 **Will be updated shortly**
-Check out the live demo here: [HubHive Live Demo](https://your-live-demo-url.com)
+Check out the live demo here: [HubHive Live Demo](https://job-lane-backend.vercel.app/)
 
 > **Note**: The live demo may be hosted on a free tier, so please allow a few seconds for initial loading.
 
