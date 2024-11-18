@@ -1,63 +1,62 @@
 const Job = require('../models/JobModel')
 const User = require('../models/UserModel')
-const cloudinary = require('cloudinary')
-const mongoose = require('mongoose');
+const mongoose=require("mongoose");
+const cloudinary = require('cloudinary').v2;
 
 
-exports.createJob = async (req, res) => {
+
+
+const createJob = async (req, res) => {
     try {
-        const { title, description, companyName, location, logo, skillsRequired, experience, salary, category, employmentType } = req.body;
+        // Extract the fields from req.body
 
-        // Check if all required fields are present
-        if (!title || !description || !companyName || !location || !logo || !skillsRequired || !experience || !salary || !category || !employmentType) {
-            return res.status(400).json({
-                success: false,
-                message: "All fields are required"
-            });
-        }
-        // Upload logo to Cloudinary
-        const myCloud = await cloudinary.v2.uploader.upload(logo, {
+        const { title, description, companyName, location, experience, salary, category, employmentType, skillsRequired } = req.body;
+
+         const logoPath=req.file.path;
+
+        // Upload the logo to Cloudinary
+        const jobCloud = await cloudinary.uploader.upload(logoPath, {
             folder: 'logo',
             crop: "scale",
         });
 
-
-        // Create the job in the database
+        // Create the new job post in the database
         const newJob = await Job.create({
             title,
             description,
             companyName,
-            companyLogo: {
-                public_id: myCloud.public_id,
-                url: myCloud.secure_url
-            },
             location,
+            companyLogo: {
+                public_id: jobCloud.public_id,
+                url: jobCloud.secure_url
+            },
             skillsRequired,
             experience,
-            category,
             salary,
-            employmentType,
-            postedBy: req.user._id
+            category,
+            employmentType
         });
 
-        res.status(201).json({
-            success: true,
-            newJob,
-            message: "Job created successfully"
+        // Return a success response
+        res.status(201)
+        .json({
+            sucess:true,
+            message:"Job Created Sucessfully",
+            newJob
         });
-
-    } catch (err) {
-        console.error("Error:", err.message);
-        res.status(500).json({
-            success: false,
-            message: err.message
-        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "An error occurred while creating the job post", error: error.message });
     }
 };
 
 
 
-exports.allJobs = async (req, res) => {
+
+
+
+
+const allJobs = async (req, res) => {
     try {
 
         const Jobs = await Job.find();
@@ -76,7 +75,7 @@ exports.allJobs = async (req, res) => {
 }
 
 
-exports.oneJob = async (req, res) => {
+const oneJob = async (req, res) => {
     try {
         const job = await Job.findById(req.params.id).populate('postedBy');
 
@@ -94,7 +93,7 @@ exports.oneJob = async (req, res) => {
 }
 
 
-exports.saveJob = async (req, res) => {
+const saveJob = async (req, res) => {
     try {
 
         const user = await User.findById(req.user._id);
@@ -132,7 +131,7 @@ exports.saveJob = async (req, res) => {
     }
 }
 
-exports.getSavedJobs = async (req, res) => {
+const getSavedJobs = async (req, res) => {
     try {
 
         const user = await User.findById(req.user._id).populate('savedJobs');;
@@ -152,4 +151,12 @@ exports.getSavedJobs = async (req, res) => {
             message: err.message
         })
     }
+}
+
+module.exports={
+createJob,
+getSavedJobs,
+saveJob,
+oneJob,
+allJobs
 }
