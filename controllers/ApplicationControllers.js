@@ -6,7 +6,7 @@ const mongoose = require('mongoose')
 
 
 // Creates a new application
-exports.createApplication = async (req, res) => {
+const createApplication = async (req, res) => {
     try {
         const job = await Job.findById(req.params.id);
         const user = await User.findById(req.user._id);
@@ -49,7 +49,7 @@ exports.createApplication = async (req, res) => {
 
 
 // Get a single application
-exports.getSingleApplication = async (req, res) => {
+const getSingleApplication = async (req, res) => {
     try {
         const application = await Application.findById(req.params.id).populate('job applicant');
 
@@ -68,7 +68,7 @@ exports.getSingleApplication = async (req, res) => {
 
 
 // Gets all applications of an user
-exports.getUsersAllApplications = async (req, res) => {
+const getUsersAllApplications = async (req, res) => {
     try {
         const allApplications = await Application.find({ applicant: req.user._id }).populate('job')
             .populate('applicant');
@@ -77,7 +77,6 @@ exports.getUsersAllApplications = async (req, res) => {
             success: true,
             allApplications
         })
-
 
     } catch (err) {
         res.status(500).json({
@@ -88,7 +87,7 @@ exports.getUsersAllApplications = async (req, res) => {
 }
 
 // Delete application 
-exports.deleteApplication = async (req, res) => {
+const deleteApplication = async (req, res) => {
     try {
 
         const user = await User.findById(req.user._id);
@@ -131,4 +130,10 @@ exports.deleteApplication = async (req, res) => {
         })
     }
 
+}
+module.exports={
+    createApplication,
+    getSingleApplication,
+    deleteApplication,
+    getUsersAllApplications
 }
