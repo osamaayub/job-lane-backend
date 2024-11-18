@@ -1,61 +1,71 @@
 const User = require('../models/UserModel')
 const bcrypt = require('bcrypt')
+const {hashPassword,comparePassword}=require("../utils");
 const { createToken } = require('../middlewares/auth')
 const cloudinary = require('cloudinary').v2;
 
 
 
-
 exports.register = async (req, res) => {
+
     try {
-
-
-        const { name, email, password, avatar, skills, resume } = req.body;
-
-
-        const myCloud = await cloudinary.uploader.upload(avatar, {
+        const { name, email, password, skills } = req.body;
+          
+        const avatarFile = req.files.avatar[0].path;
+        const resumeFile = req.files.resume[0].path;
+        // Upload avatar to Cloudinary
+        const avatarUpload = await cloudinary.uploader.upload(avatarFile, {
             folder: 'avatar',
+            crop:'scale'
+        });
 
-            crop: "scale",
-        })
-
-        const myCloud2 = await cloudinary.uploader.upload(resume, {
+        // Upload resume to Cloudinary (use resource_type: 'raw' for PDFs)
+        const resumeUpload = await cloudinary.uploader.upload(resumeFile, {
             folder: 'resume',
+        });
 
-            crop: "fit",
-        })
+        // Hash the password
+        const hashPass = await hashPassword(password);
 
-        const hashPass = await bcrypt.hash(password, 10)
+        // Create the user with avatar and resume URLs
         const user = await User.create({
             name,
             email,
             password: hashPass,
             avatar: {
-                public_id: myCloud.public_id,
-                url: myCloud.secure_url
+                public_id: avatarUpload.public_id,
+                url: avatarUpload.secure_url,
             },
             skills,
             resume: {
-                public_id: myCloud2.public_id,
-                url: myCloud2.secure_url
-            }
-        })
+                public_id: resumeUpload.public_id,
+                url: resumeUpload.secure_url,
+            },
+        });
 
-        const token = createToken(user._id, user.email)
+        // Create a token for the user
+        const token = createToken(user._id, user.email);
 
+        // Send the response with token and user data
         res.status(201).json({
             success: true,
-            message: "User Created",
+            message: 'User registered successfully',
             user,
-            token
-        })
+            token,
+        });
+
     } catch (err) {
+        console.error(err);
         res.status(500).json({
             success: false,
-            message: err.message
-        })
+            message: err.message || 'Something went wrong',
+        });
     }
-}
+};
+
+
+
+
 
 
 
@@ -67,7 +77,7 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
     try {
-        const { email, password, role } = req.body;
+        const { email, password} = req.body;
         if (!email || !password) {
             return res.status(400).json({
                 sucess: false,
@@ -84,7 +94,7 @@ exports.login = async (req, res) => {
             })
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = comparePassword(password,user.password);
 
         if (!isMatch) {
             return res.status(401).json({
@@ -164,132 +174,151 @@ exports.me = async (req, res) => {
 
 exports.changePassword = async (req, res) => {
     try {
-
         const { oldPassword, newPassword, confirmPassword } = req.body;
 
-        const user = await User.findById(req.user._id)
+        // Fetch the user based on ID from the request
+        const user = await User.findById(req.user._id);
 
+        // Retrieve the stored hashed password
         const userPassword = user.password;
 
-        const isMatch = await bcrypt.compare(oldPassword, userPassword);
-
+        // Check if the provided old password matches the stored password
+        const isMatch = await comparePassword(oldPassword, userPassword);
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
-                message: "Old password is wrong"
-            })
+                message: "Old password is incorrect",
+            });
         }
 
+        // Check if the new password is the same as the old password
         if (newPassword === oldPassword) {
             return res.status(400).json({
                 success: false,
-                message: "New password is same as old Password"
-            })
+                message: "New password cannot be the same as the old password",
+            });
         }
 
+        // Ensure newPassword and confirmPassword match
         if (newPassword !== confirmPassword) {
-            return res.status(401).json({
+            return res.status(400).json({
                 success: false,
-                message: "New Pasword and Confirm Password are not matching"
-            })
+                message: "New password and confirm password do not match",
+            });
         }
 
-        const hashPass = await bcrypt.hash(newPassword, 10);
+        // Hash the new password
+        const hashPass = await hashPassword(newPassword, 10);
 
+        // Update the user's password and save
         user.password = hashPass;
-
         await user.save();
 
         res.status(200).json({
             success: true,
-            message: "User password changed"
-        })
-
-
+            message: "User password changed successfully",
+        });
 
     } catch (err) {
         res.status(500).json({
             success: false,
-            message: err.message
-        })
+            message: err.message,
+        });
     }
-}
-
+};
 exports.updateProfile = async (req, res) => {
     try {
-        const { newName, newEmail, newAvatar, newResume, newSkills } = req.body;
-        //if any fields missing dont update profile
-        if (!newName || !newEmail || !newAvatar || !newResume || !newSkills) {
+        const { newName, newEmail, newSkills } = req.body;
+           console.log(req.body);
+           console.log(req.files);
+        // Validate required fields
+        if (!newName || !newEmail || !newSkills) {
             return res.status(400).json({
-                sucess: false,
-                message: "All fields are required"
-            })
+                success: false,
+                message: "Name, Email, and Skills are required"
+            });
         }
 
-        const user = await User.findById(req.user._id);
+        // Validate and access uploaded files
+        const newAvatar = req.files && req.files.newAvatar ? req.files.newAvatar[0].path : null;
+        const newResume = req.files && req.files.newResume ? req.files.newResume[0].path : null;
+        // Upload files to Cloudinary if they exist
+        let avatarUpload, resumeUpload;
 
-        if (!user) {
-            return res.status(400).json({
-                sucess: false,
-                message: "user not found"
-            })
+        if (newAvatar) {
+            avatarUpload = await cloudinary.uploader.upload(newAvatar, {
+                folder: 'avatar',
+                crop: "scale"
+            });
         }
 
-        const avatarId = user.avatar.public_id;
-        const resumeId = user.resume.public_id;
-
-        await cloudinary.uploader.destroy(avatarId);
-        await cloudinary.uploader.destroy(resumeId);
-
-
-        const myCloud1 = await cloudinary.uploader.upload(newAvatar, {
-            folder: 'avatar',
-            crop: "scale",
-        })
-
-        const myCloud2 = await cloudinary.uploader.upload(newResume, {
-            folder: 'resume',
-            crop: "fit",
-        })
-        user.name = newName
-        user.email = newEmail
-        user.skills = newSkills
-        user.avatar = {
-            public_id: myCloud1.public_id,
-            url: myCloud1.secure_url
-        }
-        user.resume = {
-            public_id: myCloud2.public_id,
-            url: myCloud2.secure_url
+        if (newResume) {
+            resumeUpload = await cloudinary.uploader.upload(newResume, {
+                folder: 'resume',
+                resource_type: "raw"  // For non-image files like PDF
+            });
         }
 
-        await user.save()
+        // Find user and update profile using findByIdAndUpdate
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $set: {
+                    name: newName,
+                    email: newEmail,
+                    skills: JSON.parse(newSkills),
+                    avatar: avatarUpload ? {
+                        public_id: avatarUpload.public_id,
+                        url: avatarUpload.secure_url
+                    } : undefined,
+                    resume: resumeUpload ? {
+                        public_id: resumeUpload.public_id,
+                        url: resumeUpload.secure_url
+                    } : undefined
+                }
+            },
+            { new: true }  // Return the updated user document
+        );
 
+        if (!updatedUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
 
         res.status(200).json({
             success: true,
-            message: "Profile Updated",
-        })
+            message: "Profile updated successfully",
+            user: updatedUser
+        });
     } catch (err) {
+        console.error("Error updating profile:", err.message);
         res.status(500).json({
             success: false,
-            message: err.message
-        })
+            message: "Internal server error. Please try again later."
+        });
     }
-}
+};
+
+
+
+
 
 
 exports.deleteAccount = async (req, res) => {
     try {
 
-        const user = await User.findById(req.user._id)
+        const user = await User.findById(req.user._id);
 
-        const isMatch = await bcrypt.compare(req.body.password, user.password);
+        const isMatch = await comparePassword(req.body.password, user.password);
 
-        if (isMatch) {
-            await User.findByIdAndRemove(req.user._id);
+        
+
+        if (!isMatch) {
+           await User.findByIdAndDelete(req.user._id);
         } else {
-            return res.status(200).json({
+            return res.status(400).json({
                 success: false,
                 message: "Password does not match !"
 
