@@ -1,4 +1,5 @@
 const User = require('../models/UserModel')
+const bcrypt = require('bcrypt')
 const {hashPassword,comparePassword}=require("../utils");
 const { createToken } = require('../middlewares/auth')
 const cloudinary = require('cloudinary').v2;
@@ -10,8 +11,8 @@ const register = async (req, res) => {
     try {
         const { name, email, password, skills } = req.body;
           
-        const avatarFile = req.files.avatar[0].path;
-        const resumeFile = req.files.resume[0].path;
+        const avatarFile = req.files && req.files.avatar ?req.files.avatar[0].path:null;
+        const resumeFile = req.files && req.files.resume ? req.files.resume[0].path : null;
         // Upload avatar to Cloudinary
         const avatarUpload = await cloudinary.uploader.upload(avatarFile, {
             folder: 'avatar',
@@ -119,7 +120,6 @@ const login = async (req, res) => {
         })
     }
 }
-
 
 const isLogin = async (req, res) => {
     try {
