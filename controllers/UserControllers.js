@@ -1,5 +1,4 @@
 const User = require('../models/UserModel')
-const bcrypt = require('bcrypt')
 const {hashPassword,comparePassword}=require("../utils");
 const { createToken } = require('../middlewares/auth')
 const cloudinary = require('cloudinary').v2;
